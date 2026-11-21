@@ -3,23 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>site-test</title>
-  <style>
-    body {
-      max-width: 44rem;
-      margin: 15vh auto;
-      padding: 1.5rem;
-      font: 1.2rem/1.6 system-ui;
-      color: #17212b;
-      background: #faf9f6;
-    }
-    h1 { line-height: 1.2; }
-  </style>
+  <meta name="theme-color" content="#121713">
+  <meta name="description" content="An analog TV test card with digital rain, CRT interference, and optional receiver audio.">
+  <title>Signal Lab — Test Pattern</title>
+  <link rel="stylesheet" href="./signal.css">
+  <script src="./signal.js" defer></script>
 </head>
 <body>
-  <main>
-    <h1>site-test</h1>
-    <p>Your website is ready.</p>
+  <canvas class="ambient" id="ambient" aria-hidden="true"></canvas>
+
+  <main class="monitor" id="monitor">
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span><strong>Signal Lab</strong><span class="brand-caption">Broadcast monitor</span></span>
+      </div>
+      <div class="signal" id="signal" data-lost="false">
+        <span class="signal-light" aria-hidden="true"></span>
+        <span id="signal-label">Signal locked</span>
+      </div>
+    </header>
+
+    <section class="chassis" aria-labelledby="screen-title">
+      <div class="bezel">
+        <div class="screen" id="screen">
+          <canvas id="raster" class="raster" aria-hidden="true"></canvas>
+          <div class="screen-labels" aria-hidden="true"><span>CH 01</span><span>CVBS</span></div>
+          <div class="test-title">
+            <h1 id="screen-title">Test Pattern</h1>
+            <p>Please stand by</p>
+          </div>
+          <canvas id="interference" class="interference" aria-hidden="true"></canvas>
+          <div class="glass" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="console">
+        <div class="input">
+          <span class="input-label">Input</span>
+          <span>Composite video</span>
+        </div>
+        <div class="controls" role="group" aria-label="Monitor controls">
+          <button type="button" id="rain" aria-pressed="true" aria-keyshortcuts="R" title="Toggle digital rain (R)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3v5m0 3v6m5-12v7m0 3v2m5-14v3m0 3v8"/></svg>
+            <span>Rain</span>
+          </button>
+          <button type="button" id="sound" aria-pressed="false" aria-keyshortcuts="M" title="Toggle receiver audio (M)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3 6 7H3v6h3l5 4V3Zm3 4 4 6m0-6-4 6" class="muted-icon"/><path d="M11 3 6 7H3v6h3l5 4V3Zm3 4a5 5 0 0 1 0 6m2-8a7 7 0 0 1 0 10" class="sound-icon"/></svg>
+            <span>Sound</span>
+          </button>
+          <button type="button" id="motion" data-paused="false" aria-keyshortcuts="P" title="Pause motion (P)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4v12m6-12v12" class="pause-icon"/><path d="m7 4 9 6-9 6V4Z" class="play-icon"/></svg>
+            <span>Pause</span>
+          </button>
+          <button type="button" id="fullscreen" aria-keyshortcuts="F" title="Enter fullscreen (F)">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4H4v3m9-3h3v3M4 13v3h3m9-3v3h-3"/></svg>
+            <span>Fullscreen</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <button type="button" class="trigger" id="glitch" aria-keyshortcuts="G" title="Trigger interference (G)">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10h4l2-5 3 10 2-5h5"/></svg>
+        <span>Trigger interference</span>
+        <kbd>G</kbd>
+      </button>
+      <span class="key-hints"><kbd>R</kbd> Rain <kbd>M</kbd> Sound <kbd>P</kbd> Pause <kbd>F</kbd> Fullscreen</span>
+    </footer>
   </main>
 </body>
 </html>
