@@ -2,7 +2,7 @@
 
 A viewport-filling TV test pattern with seven color bars, grayscale steps, a circular resolution card, and occasional CRT interference. Open `site/index.html` locally or visit the [GitHub Pages site](https://mamachanko.github.io/site-test/).
 
-Use the speaker icon to turn on the receiver hum and bursts of static. With reduced motion enabled, the screen shows a still frame.
+With reduced motion enabled, the screen shows a still frame.
 
 ## Character background
 

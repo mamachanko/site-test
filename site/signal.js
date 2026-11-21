@@ -3,13 +3,11 @@
 const screen = document.getElementById("screen");
 const raster = document.getElementById("raster");
 const interference = document.getElementById("interference");
-const sound = document.getElementById("sound");
 const video = raster.getContext("2d");
 const noise = interference.getContext("2d");
 const testCard = document.createElement("canvas");
 const card = testCard.getContext("2d");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-const Audio = window.AudioContext || window.webkitAudioContext;
 
 const random = (min, max) => min + Math.random() * (max - min);
 const horizontalBars = (context, colors, x, y, width, height) => {
@@ -156,9 +154,6 @@ let lastTick = 0;
 let nextGlitch = Infinity;
 let glitchStart = 0;
 let glitchEnd = 0;
-let receiver;
-let audioEnabled = false;
-let audioPending = false;
 
 function sizeCanvas(canvas, context, cssWidth, cssHeight) {
   canvas.width = Math.max(1, Math.round(cssWidth * ratio));
@@ -211,7 +206,6 @@ function startGlitch(now) {
   glitchStart = now;
   glitchEnd = now + 620;
   nextGlitch = now + random(9500, 17500);
-  buzz();
 }
 
 function tick(now) {
@@ -225,56 +219,6 @@ function tick(now) {
   animation = requestAnimationFrame(tick);
 }
 
-function createReceiver() {
-  const context = new Audio();
-  const volume = context.createGain();
-  volume.gain.value = 0;
-  volume.connect(context.destination);
-
-  for (const [frequency, type, level] of [[60, "sine", .045], [120, "triangle", .012]]) {
-    const hum = context.createOscillator();
-    const gain = context.createGain();
-    hum.type = type;
-    hum.frequency.value = frequency;
-    gain.gain.value = level;
-    hum.connect(gain).connect(volume);
-    hum.start();
-  }
-
-  const buffer = context.createBuffer(1, context.sampleRate, context.sampleRate);
-  const samples = buffer.getChannelData(0);
-  for (let i = 0; i < samples.length; i++) samples[i] = random(-1, 1);
-  const hiss = context.createBufferSource();
-  hiss.buffer = buffer;
-  hiss.loop = true;
-  const filter = context.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.value = 1400;
-  const burst = context.createGain();
-  burst.gain.value = 0;
-  hiss.connect(filter).connect(burst).connect(volume);
-  hiss.start();
-  return { context, volume, burst };
-}
-
-function updateVolume() {
-  if (!receiver) return;
-  const { context, volume } = receiver;
-  const level = audioEnabled && !document.hidden ? .65 : 0;
-  volume.gain.setTargetAtTime(level, context.currentTime, .035);
-}
-
-function buzz() {
-  if (!audioEnabled || !receiver) return;
-  const { context, burst } = receiver;
-  const now = context.currentTime;
-  burst.gain.cancelScheduledValues(now);
-  burst.gain.setValueAtTime(0, now);
-  burst.gain.linearRampToValueAtTime(.38, now + .035);
-  burst.gain.exponentialRampToValueAtTime(.001, now + .58);
-  burst.gain.setValueAtTime(0, now + .62);
-}
-
 function restartMotion() {
   cancelAnimationFrame(animation);
   lastTick = performance.now();
@@ -284,31 +228,7 @@ function restartMotion() {
   if (!reducedMotion.matches && !document.hidden) animation = requestAnimationFrame(tick);
 }
 
-sound.hidden = !Audio;
-sound.addEventListener("click", async () => {
-  if (audioPending) return;
-  audioPending = true;
-  try {
-    if (!audioEnabled) {
-      receiver ??= createReceiver();
-      await receiver.context.resume();
-    }
-    audioEnabled = !audioEnabled;
-    sound.setAttribute("aria-pressed", String(audioEnabled));
-    sound.title = audioEnabled ? "Turn sound off" : "Turn sound on";
-    updateVolume();
-    if (audioEnabled && performance.now() < glitchEnd) buzz();
-  } catch {
-    sound.hidden = true;
-  } finally {
-    audioPending = false;
-  }
-});
-
-document.addEventListener("visibilitychange", () => {
-  updateVolume();
-  restartMotion();
-});
+document.addEventListener("visibilitychange", restartMotion);
 reducedMotion.addEventListener("change", restartMotion);
 
 new ResizeObserver(resize).observe(screen);
