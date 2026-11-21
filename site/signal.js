@@ -1,25 +1,15 @@
 "use strict";
 
-const byId = (id) => document.getElementById(id);
-const screen = byId("screen");
-const monitor = byId("monitor");
-const raster = byId("raster");
-const ambient = byId("ambient");
-const interference = byId("interference");
+const screen = document.getElementById("screen");
+const raster = document.getElementById("raster");
+const interference = document.getElementById("interference");
+const sound = document.getElementById("sound");
 const video = raster.getContext("2d");
-const background = ambient.getContext("2d");
 const noise = interference.getContext("2d");
 const testCard = document.createElement("canvas");
 const card = testCard.getContext("2d");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const Audio = window.AudioContext || window.webkitAudioContext;
-const buttons = {
-  rain: byId("rain"),
-  sound: byId("sound"),
-  motion: byId("motion"),
-  fullscreen: byId("fullscreen"),
-  glitch: byId("glitch"),
-};
 
 const random = (min, max) => min + Math.random() * (max - min);
 const horizontalBars = (context, colors, x, y, width, height) => {
@@ -59,7 +49,7 @@ function drawTestCard(width, height) {
   }
   card.stroke();
 
-  const radius = Math.min(height * .425, width * .34);
+  const radius = Math.min(height * .425, width * .45);
   card.save();
   card.translate(width / 2, height / 2);
   card.beginPath();
@@ -154,26 +144,18 @@ function drawRain(context, field, time, colors) {
   }
 }
 
-const ambientColors = ["#c2ed99b8", "#8fcc7690", "#70ad5c65", "#58914c4d"];
 const screenColors = ["#edffdbd9", "#d4ffd08a", "#c3f0ba60", "#9ed49b38"];
 
 let width = 0;
 let height = 0;
-let skyWidth = 0;
-let skyHeight = 0;
 let ratio = 1;
-let skyRain;
 let screenRain;
-let rainEnabled = true;
-let paused = reducedMotion.matches;
 let animation = 0;
 let rainTime = 0;
 let lastTick = 0;
 let nextGlitch = Infinity;
 let glitchStart = 0;
 let glitchEnd = 0;
-let glitchReady = 0;
-let displayedInterference = false;
 let receiver;
 let audioEnabled = false;
 let audioPending = false;
@@ -188,38 +170,24 @@ function resize() {
   ratio = Math.min(window.devicePixelRatio || 1, 2);
   width = screen.clientWidth;
   height = screen.clientHeight;
-  skyWidth = ambient.clientWidth;
-  skyHeight = ambient.clientHeight;
   if (!width || !height) return;
 
   sizeCanvas(raster, video, width, height);
   sizeCanvas(interference, noise, width, height);
   sizeCanvas(testCard, card, width, height);
-  sizeCanvas(ambient, background, skyWidth, skyHeight);
   drawTestCard(width, height);
 
-  skyRain = makeRain(skyWidth, skyHeight, skyWidth < 650 ? 15 : 18, .8);
-  screenRain = makeRain(width, height, width < 500 ? 10 : 13, .87);
+  screenRain = makeRain(width, height, width < 500 ? 10 : 14, .82);
   paint(performance.now());
 }
 
 function paint(now) {
   if (!screenRain) return;
   video.drawImage(testCard, 0, 0, width, height);
-  background.clearRect(0, 0, skyWidth, skyHeight);
-  if (rainEnabled) {
-    drawRain(background, skyRain, rainTime, ambientColors);
-    drawRain(video, screenRain, rainTime, screenColors);
-  }
+  drawRain(video, screenRain, rainTime, screenColors);
 
   noise.clearRect(0, 0, width, height);
-  const disrupted = now < glitchEnd;
-  if (displayedInterference !== disrupted) {
-    displayedInterference = disrupted;
-    byId("signal").dataset.lost = String(disrupted);
-    byId("signal-label").textContent = disrupted ? "Sync unstable" : "Signal locked";
-  }
-  if (!disrupted) return;
+  if (now >= glitchEnd) return;
 
   const progress = (now - glitchStart) / (glitchEnd - glitchStart);
   const bandHeight = Math.max(8, height * .095);
@@ -240,30 +208,21 @@ function paint(now) {
 }
 
 function startGlitch(now) {
-  if (now < glitchReady) return;
   glitchStart = now;
   glitchEnd = now + 620;
-  glitchReady = now + 1100;
   nextGlitch = now + random(9500, 17500);
   buzz();
 }
 
-function queueFrame() {
-  if (!animation && !document.hidden && (!paused || glitchEnd > performance.now())) {
-    animation = requestAnimationFrame(tick);
-  }
-}
-
 function tick(now) {
-  animation = 0;
   const elapsed = now - lastTick;
-  if (elapsed >= 1000 / 24 || (displayedInterference && now >= glitchEnd)) {
-    if (!paused) rainTime += Math.min(elapsed, 100) / 1000;
+  if (elapsed >= 1000 / 24) {
+    rainTime += Math.min(elapsed, 100) / 1000;
     lastTick = now;
-    if (!paused && now >= nextGlitch) startGlitch(now);
+    if (now >= nextGlitch) startGlitch(now);
     paint(now);
   }
-  queueFrame();
+  animation = requestAnimationFrame(tick);
 }
 
 function createReceiver() {
@@ -316,63 +275,17 @@ function buzz() {
   burst.gain.setValueAtTime(0, now + .62);
 }
 
-function press(button, on) {
-  button.setAttribute("aria-pressed", String(on));
+function restartMotion() {
+  cancelAnimationFrame(animation);
+  lastTick = performance.now();
+  nextGlitch = lastTick + random(7200, 11000);
+  glitchEnd = 0;
+  paint(lastTick);
+  if (!reducedMotion.matches && !document.hidden) animation = requestAnimationFrame(tick);
 }
 
-function setPaused(on) {
-  paused = on;
-  buttons.motion.dataset.paused = String(on);
-  buttons.motion.querySelector("span").textContent = on ? "Resume" : "Pause";
-  buttons.motion.title = on ? "Resume motion (P)" : "Pause motion (P)";
-
-  const now = performance.now();
-  if (on) {
-    glitchEnd = 0;
-    nextGlitch = Infinity;
-    cancelAnimationFrame(animation);
-    animation = 0;
-  } else {
-    nextGlitch = now + random(7200, 11000);
-    lastTick = now;
-  }
-  paint(now);
-  queueFrame();
-}
-
-function isFullscreen() {
-  return document.fullscreenElement === monitor || monitor.classList.contains("is-fullscreen");
-}
-
-function syncFullscreen() {
-  const active = isFullscreen();
-  buttons.fullscreen.querySelector("span").textContent = active ? "Exit fullscreen" : "Fullscreen";
-  buttons.fullscreen.title = active ? "Exit fullscreen (F)" : "Enter fullscreen (F)";
-}
-
-async function toggleFullscreen() {
-  if (document.fullscreenElement === monitor) {
-    await document.exitFullscreen();
-  } else if (monitor.classList.contains("is-fullscreen")) {
-    monitor.classList.remove("is-fullscreen");
-  } else {
-    try {
-      if (!monitor.requestFullscreen) throw new Error("Fullscreen unavailable");
-      await monitor.requestFullscreen();
-    } catch {
-      monitor.classList.add("is-fullscreen");
-    }
-  }
-  syncFullscreen();
-}
-
-buttons.rain.addEventListener("click", () => {
-  rainEnabled = !rainEnabled;
-  press(buttons.rain, rainEnabled);
-  paint(performance.now());
-});
-buttons.sound.disabled = !Audio;
-buttons.sound.addEventListener("click", async () => {
+sound.hidden = !Audio;
+sound.addEventListener("click", async () => {
   if (audioPending) return;
   audioPending = true;
   try {
@@ -381,58 +294,22 @@ buttons.sound.addEventListener("click", async () => {
       await receiver.context.resume();
     }
     audioEnabled = !audioEnabled;
-    press(buttons.sound, audioEnabled);
+    sound.setAttribute("aria-pressed", String(audioEnabled));
+    sound.title = audioEnabled ? "Turn sound off" : "Turn sound on";
     updateVolume();
-    if (audioEnabled && displayedInterference) buzz();
+    if (audioEnabled && performance.now() < glitchEnd) buzz();
   } catch {
-    buttons.sound.disabled = true;
-    buttons.sound.title = "Receiver audio unavailable";
+    sound.hidden = true;
   } finally {
     audioPending = false;
   }
 });
-buttons.motion.addEventListener("click", () => setPaused(!paused));
-buttons.fullscreen.addEventListener("click", toggleFullscreen);
-buttons.glitch.addEventListener("click", () => {
-  const now = performance.now();
-  startGlitch(now);
-  paint(now);
-  queueFrame();
-});
 
-const shortcuts = { r: buttons.rain, m: buttons.sound, p: buttons.motion, f: buttons.fullscreen, g: buttons.glitch };
-document.addEventListener("keydown", (event) => {
-  if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-  if (event.target.closest?.("input, textarea, select, [contenteditable]")) return;
-  if (event.key === "Escape" && monitor.classList.contains("is-fullscreen")) {
-    monitor.classList.remove("is-fullscreen");
-    syncFullscreen();
-  }
-  const button = shortcuts[event.key.toLowerCase()];
-  if (button && !button.disabled) {
-    event.preventDefault();
-    button.click();
-  }
-});
-document.addEventListener("fullscreenchange", syncFullscreen);
 document.addEventListener("visibilitychange", () => {
   updateVolume();
-  if (document.hidden) {
-    cancelAnimationFrame(animation);
-    animation = 0;
-    glitchEnd = 0;
-    return;
-  }
-  lastTick = performance.now();
-  if (!paused) nextGlitch = lastTick + random(6200, 10000);
-  paint(lastTick);
-  queueFrame();
+  restartMotion();
 });
-reducedMotion.addEventListener("change", (event) => setPaused(event.matches));
+reducedMotion.addEventListener("change", restartMotion);
 
-const observer = new ResizeObserver(resize);
-observer.observe(screen);
-observer.observe(ambient);
-window.addEventListener("resize", resize);
-resize();
-setPaused(paused);
+new ResizeObserver(resize).observe(screen);
+restartMotion();
